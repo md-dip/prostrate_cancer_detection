@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prostate Cancer Detection — Hybrid CNN-GNN</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    color: #e8edf2;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 { font-size: 26px; letter-spacing: -0.3px; }
+  header p { opacity: 0.7; margin-top: 6px; font-size: 14px; }
+
+  .drop-zone {
+    background: rgba(255,255,255,0.04);
+    border: 2px dashed rgba(255,255,255,0.25);
+    border-radius: 14px;
+    padding: 56px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: #5dade2;
+    background: rgba(93,173,226,0.08);
+  }
+  .drop-zone p { margin: 8px 0; opacity: 0.85; }
+  .drop-zone .icon { font-size: 48px; margin-bottom: 8px; }
+  .drop-zone input { display: none; }
+  .browse-btn {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 8px 20px;
+    background: #2980b9;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+
+  .loading { display: none; text-align: center; padding: 30px; font-size: 15px; }
+  .spinner {
+    border: 3px solid rgba(255,255,255,0.15);
+    border-top: 3px solid #5dade2;
+    border-radius: 50%;
+    width: 38px; height: 38px;
+    animation: spin 0.9s linear infinite;
+    margin: 0 auto 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .results { display: none; margin-top: 24px; }
+
+  .pred-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 14px;
+    padding: 22px;
+    margin-bottom: 24px;
+  }
+  .pred-label { font-size: 30px; font-weight: 700; margin-bottom: 6px; }
+  .pred-label.benign { color: #2ecc71; }
+  .pred-label.malignant { color: #e74c3c; }
+  .pred-conf { font-size: 15px; opacity: 0.85; margin-bottom: 14px; }
+  .bar-row { margin: 10px 0; }
+  .bar-row .lbl { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .bar { height: 10px; background: rgba(255,255,255,0.08); border-radius: 5px; overflow: hidden; }
+  .bar-fill { height: 100%; transition: width 0.5s; }
+  .bar-fill.benign { background: #2ecc71; }
+  .bar-fill.malignant { background: #e74c3c; }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    opacity: 0.7;
+    margin: 18px 0 10px;
+  }
+
+  .img-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .img-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+  }
+  .img-card h4 { font-size: 12px; opacity: 0.85; margin-bottom: 6px; }
+  .img-card img {
+    width: 100%; height: auto;
+    border-radius: 6px;
+    background: #000;
+    image-rendering: pixelated;
+  }
+
+  .reset-btn {
+    display: block;
+    margin: 24px auto 0;
+    padding: 10px 24px;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .reset-btn:hover { background: rgba(255,255,255,0.18); }
+
+  .error {
+    background: rgba(231,76,60,0.15);
+    border: 1px solid rgba(231,76,60,0.5);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 14px;
+    color: #ffcdc7;
+    font-size: 14px;
+    display: none;
+  }
+
+  footer { text-align: center; margin-top: 32px; font-size: 12px; opacity: 0.5; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Prostate Cancer Detection</h1>
+    <p>Hybrid CNN–GAT–GCN on H&amp;E histopathology • Sobel · Canny · Morphology (3×3 ellipse)</p>
+  </header>
+
+  <div id="dropZone" class="drop-zone">
+    <div class="icon">📁</div>
+    <p><strong>Drop an H&amp;E image here</strong></p>
+    <p>or</p>
+    <span class="browse-btn">Browse files</span>
+    <p style="margin-top:14px;font-size:12px;opacity:0.6;">JPG · PNG · 224×224 ideal (auto-resized)</p>
+    <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <div id="error" class="error"></div>
+
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <div>Running inference (TTA ×5 + SLIC graph + edge maps)…</div>
+  </div>
+
+  <div id="results" class="results">
+    <div class="pred-card">
+      <div id="predLabel" class="pred-label"></div>
+      <div id="predConf" class="pred-conf"></div>
+
+      <div class="bar-row">
+        <div class="lbl"><span>Benign</span><span id="probBenign"></span></div>
+        <div class="bar"><div id="barBenign" class="bar-fill benign" style="width:0%"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="lbl"><span>Malignant</span><span id="probMalignant"></span></div>
+        <div class="bar"><div id="barMalignant" class="bar-fill malignant" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="section-title">Edge detection</div>
+    <div class="img-grid">
+      <div class="img-card"><h4>Original (224×224)</h4><img id="imgOriginal"></div>
+      <div class="img-card"><h4>Sobel edges </h4><img id="imgSobel"></div>
+      <div class="img-card"><h4>Canny edges</h4><img id="imgCanny"></div>
+    </div>
+
+    <div class="section-title">Morphological operations on Canny </div>
+    <div class="img-grid">
+      <div class="img-card"><h4>Erosion</h4><img id="imgErosion"></div>
+      <div class="img-card"><h4>Dilation</h4><img id="imgDilation"></div>
+      <div class="img-card"><h4>Opening<br><span style="opacity:0.6;font-weight:400">(erode → dilate)</span></h4><img id="imgOpening"></div>
+      <div class="img-card"><h4>Closing<br><span style="opacity:0.6;font-weight:400">(dilate → erode)</span></h4><img id="imgClosing"></div>
+    </div>
+
+    <button class="reset-btn" onclick="reset()">Try another image</button>
+  </div>
+
+  <footer>HybridProstateCancerNet · EfficientNet-B4 + GATConv + GCNConv · 832-dim SE-gated fusion</footer>
+</div>
+
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const loading = document.getElementById('loading');
+const results = document.getElementById('results');
+const errBox  = document.getElementById('error');
+
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handle(e.target.files[0]); });
+
+['dragenter','dragover'].forEach(ev => dropZone.addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation(); dropZone.classList.add('dragover');
+}));
+['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation(); dropZone.classList.remove('dragover');
+}));
+dropZone.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (f) handle(f);
+});
+
+async function handle(file) {
+  if (!file.type.startsWith('image/')) {
+    return showError('Please upload an image file.');
+  }
+  errBox.style.display = 'none';
+  dropZone.style.display = 'none';
+  results.style.display = 'none';
+  loading.style.display = 'block';
+
+  const fd = new FormData();
+  fd.append('image', file);
+
+  try {
+    const res = await fetch('/predict', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Server error');
+    render(data);
+  } catch (e) {
+    showError('Inference failed: ' + e.message);
+    dropZone.style.display = 'block';
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+function render(data) {
+  const p = data.prediction;
+  const isMal = p.label === 'Malignant';
+  const labelEl = document.getElementById('predLabel');
+  labelEl.textContent = p.label;
+  labelEl.className = 'pred-label ' + (isMal ? 'malignant' : 'benign');
+  document.getElementById('predConf').textContent =
+    `Confidence: ${p.confidence}% (TTA-averaged over 5 views)`;
+
+  document.getElementById('probBenign').textContent    = p.prob_benign + '%';
+  document.getElementById('probMalignant').textContent = p.prob_malignant + '%';
+  document.getElementById('barBenign').style.width    = p.prob_benign + '%';
+  document.getElementById('barMalignant').style.width = p.prob_malignant + '%';
+
+  const im = data.images;
+  document.getElementById('imgOriginal').src = 'data:image/png;base64,' + im.original;
+  document.getElementById('imgSobel').src    = 'data:image/png;base64,' + im.sobel;
+  document.getElementById('imgCanny').src    = 'data:image/png;base64,' + im.canny;
+  document.getElementById('imgErosion').src  = 'data:image/png;base64,' + im.morph_erosion;
+  document.getElementById('imgDilation').src = 'data:image/png;base64,' + im.morph_dilation;
+  document.getElementById('imgOpening').src  = 'data:image/png;base64,' + im.morph_opening;
+  document.getElementById('imgClosing').src  = 'data:image/png;base64,' + im.morph_closing;
+
+  results.style.display = 'block';
+}
+
+function showError(msg) {
+  errBox.textContent = msg;
+  errBox.style.display = 'block';
+}
+
+function reset() {
+  results.style.display = 'none';
+  dropZone.style.display = 'block';
+  fileInput.value = '';
+  errBox.style.display = 'none';
+}
+</script>
+</body>
+</html>

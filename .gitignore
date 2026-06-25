@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+*.log
+.DS_Store
+
+# Keep the checkpoints folder but not large weight files committed casually
+checkpoints/*.pth
+!checkpoints/.gitkeep
