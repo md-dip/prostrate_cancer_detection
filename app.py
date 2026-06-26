@@ -29,7 +29,7 @@ from PIL import Image
 import torch
 
 from model import HybridProstateCancerNet
-from inference import predict, compute_edge_maps, DEVICE
+from inference import predict, compute_edge_maps, check_he_image, DEVICE
 
 # ── App setup ───────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -142,6 +142,15 @@ def predict_endpoint():
             return jsonify({'error': 'empty filename'}), 400
 
         img = Image.open(io.BytesIO(f.read())).convert('RGB')
+
+        # OOD filter — reject non-H&E uploads before running the model
+        is_he, reason, he_stats = check_he_image(img)
+        if not is_he:
+            return jsonify({
+                'error': 'invalid_image',
+                'message': reason,
+                'stats': he_stats,
+            }), 400
 
         # Run inference + edge maps
         result = predict(model, img)
