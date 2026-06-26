@@ -132,7 +132,7 @@
 <div class="container">
   <header>
     <h1>Prostate Cancer Detection</h1>
-    <p>Hybrid CNN–GAT–GCN on H&amp;E histopathology • Sobel · Canny · Morphology (3×3 ellipse)</p>
+    <p>Hybrid CNN–GAT–GCN on H&amp;E histopathology • Sobel · Canny edge detection</p>
   </header>
 
   <div id="dropZone" class="drop-zone">
@@ -142,6 +142,16 @@
     <span class="browse-btn">Browse files</span>
     <p style="margin-top:14px;font-size:12px;opacity:0.6;">JPG · PNG · 224×224 ideal (auto-resized)</p>
     <input type="file" id="fileInput" accept="image/*">
+  </div>
+
+  <div style="text-align:center; margin-top:14px;">
+    <a href="https://drive.google.com/drive/folders/1IlA4CicRXfabt9bcgqCKIhuL8Zic8TN6?usp=sharing"
+       target="_blank" rel="noopener"
+       style="display:inline-block; padding:8px 16px; background:rgba(93,173,226,0.15);
+              border:1px solid rgba(93,173,226,0.4); color:#7fc4e8; border-radius:6px;
+              text-decoration:none; font-size:13px;">
+      🧪 Don't have an H&amp;E image? Download samples from Google Drive →
+    </a>
   </div>
 
   <div id="error" class="error"></div>
@@ -169,7 +179,7 @@
     <div class="section-title">Edge detection</div>
     <div class="img-grid">
       <div class="img-card"><h4>Original (224×224)</h4><img id="imgOriginal"></div>
-      <div class="img-card"><h4>Sobel edges </h4><img id="imgSobel"></div>
+      <div class="img-card"><h4>Sobel edges</h4><img id="imgSobel"></div>
       <div class="img-card"><h4>Canny edges</h4><img id="imgCanny"></div>
     </div>
 
@@ -215,8 +225,16 @@ async function handle(file) {
   try {
     const res = await fetch('/predict', { method: 'POST', body: fd });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Server error');
-    render(data);
+    if (!res.ok) {
+      if (data.error === 'invalid_image') {
+        showError('⚠️ ' + data.message);
+      } else {
+        throw new Error(data.error || 'Server error');
+      }
+      dropZone.style.display = 'block';
+    } else {
+      render(data);
+    }
   } catch (e) {
     showError('Inference failed: ' + e.message);
     dropZone.style.display = 'block';
