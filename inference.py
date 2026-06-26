@@ -121,23 +121,13 @@ def compute_edge_maps(img_pil):
     sobel_colored = cv2.cvtColor(sobel_colored, cv2.COLOR_BGR2RGB)
 
     # Canny edges
+    # Canny edges
     canny = cv2.Canny(gray, 80, 180)
 
-    # 4 morphology operations on Canny edges — 3x3 ELLIPSE kernel (matches notebook)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    morph_erosion  = cv2.erode(canny, kernel, iterations=1)
-    morph_dilation = cv2.dilate(canny, kernel, iterations=1)
-    morph_opening  = cv2.morphologyEx(canny, cv2.MORPH_OPEN,  kernel)
-    morph_closing  = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel)
-
     return {
-        'original':       _np_to_b64(img),
-        'sobel':          _np_to_b64(sobel_colored),
-        'canny':          _np_to_b64(canny, is_gray=True),
-        'morph_erosion':  _np_to_b64(morph_erosion,  is_gray=True),
-        'morph_dilation': _np_to_b64(morph_dilation, is_gray=True),
-        'morph_opening':  _np_to_b64(morph_opening,  is_gray=True),
-        'morph_closing':  _np_to_b64(morph_closing,  is_gray=True),
+        'original': _np_to_b64(img),
+        'sobel':    _np_to_b64(sobel_colored),
+        'canny':    _np_to_b64(canny, is_gray=True),
     }
 
 

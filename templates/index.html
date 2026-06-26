@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prostate Cancer Detection — Hybrid CNN-GNN</title>
+<title>Prostate Cancer Detection Hybrid CNN-GNN</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -173,14 +173,6 @@
       <div class="img-card"><h4>Canny edges</h4><img id="imgCanny"></div>
     </div>
 
-    <div class="section-title">Morphological operations on Canny </div>
-    <div class="img-grid">
-      <div class="img-card"><h4>Erosion</h4><img id="imgErosion"></div>
-      <div class="img-card"><h4>Dilation</h4><img id="imgDilation"></div>
-      <div class="img-card"><h4>Opening<br><span style="opacity:0.6;font-weight:400">(erode → dilate)</span></h4><img id="imgOpening"></div>
-      <div class="img-card"><h4>Closing<br><span style="opacity:0.6;font-weight:400">(dilate → erode)</span></h4><img id="imgClosing"></div>
-    </div>
-
     <button class="reset-btn" onclick="reset()">Try another image</button>
   </div>
 
@@ -251,11 +243,6 @@ function render(data) {
   document.getElementById('imgOriginal').src = 'data:image/png;base64,' + im.original;
   document.getElementById('imgSobel').src    = 'data:image/png;base64,' + im.sobel;
   document.getElementById('imgCanny').src    = 'data:image/png;base64,' + im.canny;
-  document.getElementById('imgErosion').src  = 'data:image/png;base64,' + im.morph_erosion;
-  document.getElementById('imgDilation').src = 'data:image/png;base64,' + im.morph_dilation;
-  document.getElementById('imgOpening').src  = 'data:image/png;base64,' + im.morph_opening;
-  document.getElementById('imgClosing').src  = 'data:image/png;base64,' + im.morph_closing;
-
   results.style.display = 'block';
 }
 

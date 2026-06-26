@@ -6,7 +6,14 @@ Endpoints:
   POST /predict     → multipart form-data with 'image' file → JSON result
 
 Checkpoint loading:
-  Set env var CHECKPOINT_PATH (default: checkpoints/hybrid_best.pth).
+  1. If a local file exists at CHECKPOINT_PATH (default: checkpoints/hybrid_best.pth),
+     use it directly.
+  2. Otherwise, if HF_REPO_ID is set, download from Hugging Face Hub.
+     Set:
+       HF_REPO_ID  = "yourname/prostate-hybrid-cnn-gnn"
+       HF_FILENAME = "hybrid_best.pth"        (optional, this is the default)
+       HUGGINGFACE_HUB_TOKEN = "hf_xxx..."    (only needed for private repos)
+
   Handles checkpoints saved as:
     - {'model':            state_dict, ...}   ← your notebook format
     - {'model_state_dict': state_dict, ...}
@@ -29,6 +36,26 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB upload cap
 
 CHECKPOINT_PATH = os.environ.get('CHECKPOINT_PATH', 'checkpoints/hybrid_best.pth')
+HF_REPO_ID      = os.environ.get('HF_REPO_ID', '')          # e.g. "yourname/prostate-hybrid-cnn-gnn"
+HF_FILENAME     = os.environ.get('HF_FILENAME', 'hybrid_best.pth')
+
+# ── Download checkpoint from Hugging Face if not present locally ────
+if not os.path.exists(CHECKPOINT_PATH) and HF_REPO_ID:
+    try:
+        from huggingface_hub import hf_hub_download
+        print(f'[startup] no local checkpoint; downloading from HF: {HF_REPO_ID}/{HF_FILENAME}')
+        os.makedirs(os.path.dirname(CHECKPOINT_PATH) or '.', exist_ok=True)
+        downloaded = hf_hub_download(
+            repo_id=HF_REPO_ID,
+            filename=HF_FILENAME,
+            local_dir='checkpoints',
+            local_dir_use_symlinks=False,
+        )
+        CHECKPOINT_PATH = downloaded
+        print(f'[startup] downloaded to: {downloaded}')
+    except Exception as e:
+        print(f'[startup] ERROR — Hugging Face download failed: {e}')
+        print('[startup] will start without weights — predictions will be random')
 
 # ── Load model once at startup ──────────────────────────────────────
 print(f'[startup] device: {DEVICE}')
@@ -46,13 +73,11 @@ if os.path.exists(CHECKPOINT_PATH):
             if k in ckpt and isinstance(ckpt[k], dict):
                 state = ckpt[k]
                 print(f'[startup] found weights under key: "{k}"')
-                # Helpful metadata if present
                 if 'epoch'    in ckpt: print(f'[startup]   saved at epoch: {ckpt["epoch"]}')
                 if 'best_auc' in ckpt: print(f'[startup]   best val AUC:  {ckpt["best_auc"]:.4f}')
                 if 'best_acc' in ckpt: print(f'[startup]   best val acc:  {ckpt["best_acc"]:.4f}')
                 break
         if state is None:
-            # Assume the dict itself IS the state_dict
             state = ckpt
             print('[startup] using checkpoint dict as raw state_dict')
     else:
@@ -85,7 +110,7 @@ if os.path.exists(CHECKPOINT_PATH):
               'Paste this output to debug.')
 else:
     print(f'[startup] WARNING — no checkpoint at {CHECKPOINT_PATH}. '
-          f'Predictions will be RANDOM. Drop your .pth file into checkpoints/.')
+          f'Predictions will be RANDOM. Set HF_REPO_ID or put a .pth in checkpoints/.')
 
 model.to(DEVICE)
 model.eval()
