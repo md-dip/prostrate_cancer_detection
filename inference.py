@@ -100,7 +100,55 @@ def _np_to_b64(arr, is_gray=False):
     buf = io.BytesIO()
     pil.save(buf, format='PNG')
     return base64.b64encode(buf.getvalue()).decode('ascii')
+# ── H&E sanity check (out-of-distribution filter) ────────────────────
+def check_he_image(img_pil):
+    """
+    Heuristic check: does this image plausibly look like H&E histopathology?
+    Rejects non-pathology uploads (photos, X-rays, MRIs, screenshots).
 
+    Returns (is_he: bool, reason: str, stats: dict).
+    """
+    img = np.array(img_pil.convert('RGB').resize((IMG_SIZE, IMG_SIZE)))
+    hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+
+    # H&E stains live in two hue regions (OpenCV hue range is 0–180):
+    #   Eosin pink-red:        hue 160–180 and 0–15 (red wraps around)
+    #   Hematoxylin purple:    hue 120–160
+    pink_mask = ((h >= 120) | (h <= 15)) & (s >= 25) & (v >= 50) & (v <= 240)
+
+    # Slide background is bright + low-saturation
+    white_mask = (s < 25) & (v > 220)
+
+    tissue_mask = ~white_mask
+
+    pink_frac        = float(pink_mask.mean())
+    white_frac       = float(white_mask.mean())
+    tissue_frac      = float(tissue_mask.mean())
+    tissue_pink_frac = float(pink_mask.sum() / max(tissue_mask.sum(), 1))
+
+    stats = {
+        'pink_purple_frac':    round(pink_frac, 3),
+        'background_frac':     round(white_frac, 3),
+        'tissue_frac':         round(tissue_frac, 3),
+        'tissue_pink_frac':    round(tissue_pink_frac, 3),
+    }
+
+    # Decision rules (tuned for DiagSet — adjust if you get false rejections)
+    if pink_frac < 0.05:
+        return False, (
+            "This image does not look like an H&E-stained histopathology slide "
+            "(too little pink/purple staining detected). "
+            "Please upload a prostate H&E image from a dataset like DiagSet."
+        ), stats
+
+    if tissue_frac > 0.10 and tissue_pink_frac < 0.25:
+        return False, (
+            "This image has tissue-like regions, but the color profile "
+            "does not match H&E staining. Please upload a prostate H&E slide."
+        ), stats
+
+    return True, "OK", stats
 
 # ── Edge maps + morphology (matches notebook visuals) ────────────────
 def compute_edge_maps(img_pil):
