@@ -1,14 +1,6 @@
 # Prostate Cancer Detection  Web Interface
 
----
-title: Prostate Cancer Detection
-emoji: 🔬
-colorFrom: indigo
-colorTo: blue
-sdk: docker
-pinned: false
-license: mit
----
+
 ## Project layout
 
 ```
@@ -25,3 +17,12 @@ prostate_app/
 ├── railway.toml
 └── .gitignore
 ```
+---
+title: Prostate Cancer Detection
+emoji: 🔬
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+pinned: false
+license: mit
+---
