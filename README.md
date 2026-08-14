@@ -1,7 +1,14 @@
 # Prostate Cancer Detection  Web Interface
 
-Flask web app for the HybridProstateCancerNet (EfficientNet-B4 + GAT + GCN, SE-gated 832-dim fusion). Drag and drop an H&E histopathology image → get Benign/Malignant prediction with TTA-averaged confidence, plus Sobel / Canny / morphology edge maps.
-
+---
+title: Prostate Cancer Detection
+emoji: 🔬
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+pinned: false
+license: mit
+---
 ## Project layout
 
 ```
