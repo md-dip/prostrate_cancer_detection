@@ -17,7 +17,7 @@ RUN pip install --no-cache-dir torch-scatter torch-sparse \
 COPY . .
 
 # HF Spaces expects port 7860
-EXPOSE 7860
+EXPOSE 10000
 
 # Longer timeout to allow first-request model download from HF Hub
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:7860", "--timeout", "300", "--workers", "1"]
+CMD gunicorn app:app --bind 0.0.0.0:${PORT:-10000} --timeout 300 --workers 1
